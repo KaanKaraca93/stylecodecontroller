@@ -1,0 +1,570 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "PLM Monitoring System API",
+    "description": "Infor Fashion PLM Style kayıtlarını izleyen ve hata tespit eden monitoring sistemi",
+    "version": "1.0.0",
+    "contact": {
+      "name": "PLM Monitoring",
+      "email": "kaan.karaca@kblplus.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://stylecodecontroller-b7fe8147cb04.herokuapp.com",
+      "description": "Production Server"
+    },
+    {
+      "url": "http://localhost:3000",
+      "description": "Development Server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Monitoring",
+      "description": "PLM monitoring ve kontrol endpoint'leri"
+    },
+    {
+      "name": "Reporting",
+      "description": "Raporlama endpoint'leri"
+    },
+    {
+      "name": "Integration",
+      "description": "Entegrasyon validasyon endpoint'leri"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "tags": ["Monitoring"],
+        "summary": "System Status",
+        "description": "Sistemin çalışma durumunu ve schedule bilgilerini döner",
+        "responses": {
+          "200": {
+            "description": "Başarılı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "running"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "PLM Monitoring System çalışıyor!"
+                    },
+                    "time": {
+                      "type": "string",
+                      "example": "09.02.2026 14:30:25"
+                    },
+                    "schedules": {
+                      "type": "object",
+                      "properties": {
+                        "plmCheck": {
+                          "type": "string",
+                          "example": "Her 5 dakikada bir"
+                        },
+                        "dailyReport": {
+                          "type": "string",
+                          "example": "Her gün 20:00"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/check-now": {
+      "get": {
+        "tags": ["Monitoring"],
+        "summary": "Manuel PLM Kontrolü",
+        "description": "Son kontrolden sonra oluşturulan Style'ları kontrol eder (Duplicate + Zıplama)",
+        "responses": {
+          "200": {
+            "description": "Kontrol tamamlandı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "PLM kontrolü tamamlandı!"
+                    },
+                    "time": {
+                      "type": "string",
+                      "example": "09.02.2026 14:30:25"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Hata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/send-report": {
+      "get": {
+        "tags": ["Reporting"],
+        "summary": "Manuel Gün Sonu Raporu",
+        "description": "Günlük raporu mail olarak gönderir ve rapor dosyasını siler",
+        "responses": {
+          "200": {
+            "description": "Rapor gönderildi",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Gün sonu raporu gönderildi!"
+                    },
+                    "time": {
+                      "type": "string",
+                      "example": "09.02.2026 20:00:00"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Hata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/daily-report": {
+      "get": {
+        "tags": ["Reporting"],
+        "summary": "Günlük Raporu Görüntüle",
+        "description": "Günün raporunu JSON formatında döner",
+        "responses": {
+          "200": {
+            "description": "Başarılı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DailyReport"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Hata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/validate-style": {
+      "post": {
+        "tags": ["Integration"],
+        "summary": "Style Validasyonu (Entegrasyon)",
+        "description": "Entegrasyon sistemi için tek bir Style'ın duplicate kontrolünü yapar. EntityId (StyleId) duplicate ise Status='Duplicate', değilse gelen JSON aynen döner.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IntegrationRequest"
+              },
+              "example": {
+                "BatchId": "e799e53a-aab6-4b05-9139-971a6005dcf2",
+                "TotalEvents": "1",
+                "ProcessedDate": "2025-11-13T14:29:34.000Z",
+                "Events": [
+                  {
+                    "EventId": "28",
+                    "EventType": "UPDATED_STYLE_BOM",
+                    "Source": "PLM",
+                    "Target": "ERP",
+                    "EntityId": "TW6240057038",
+                    "EntityType": "SKU",
+                    "RowVersion": "RowVersion",
+                    "ModifiedDate": "2025-11-13T14:29:34.000Z",
+                    "Status": "3"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validasyon tamamlandı",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IntegrationResponse"
+                },
+                "examples": {
+                  "valid": {
+                    "summary": "Geçerli Style (Duplicate Yok)",
+                    "value": {
+                      "BatchId": "e799e53a-aab6-4b05-9139-971a6005dcf2",
+                      "TotalEvents": "1",
+                      "ProcessedDate": "2025-11-13T14:29:34.000Z",
+                      "Events": [
+                        {
+                          "EventId": "28",
+                          "EventType": "UPDATED_STYLE_BOM",
+                          "Source": "PLM",
+                          "Target": "ERP",
+                          "EntityId": "TW6240057038",
+                          "EntityType": "SKU",
+                          "RowVersion": "RowVersion",
+                          "ModifiedDate": "2025-11-13T14:29:34.000Z",
+                          "Status": "3"
+                        }
+                      ]
+                    }
+                  },
+                  "duplicate": {
+                    "summary": "Duplicate Hatası",
+                    "value": {
+                      "BatchId": "e799e53a-aab6-4b05-9139-971a6005dcf2",
+                      "TotalEvents": "1",
+                      "ProcessedDate": "2025-11-13T14:29:34.000Z",
+                      "Events": [
+                        {
+                          "EventId": "28",
+                          "EventType": "UPDATED_STYLE_BOM",
+                          "Source": "PLM",
+                          "Target": "ERP",
+                          "EntityId": "TW6240057038",
+                          "EntityType": "SKU",
+                          "RowVersion": "RowVersion",
+                          "ModifiedDate": "2025-11-13T14:29:34.000Z",
+                          "Status": "Duplicate"
+                        }
+                      ]
+                    }
+                  },
+                  "notfound": {
+                    "summary": "StyleCode Bulunamadı",
+                    "value": {
+                      "BatchId": "e799e53a-aab6-4b05-9139-971a6005dcf2",
+                      "TotalEvents": "1",
+                      "ProcessedDate": "2025-11-13T14:29:34.000Z",
+                      "Events": [
+                        {
+                          "EventId": "28",
+                          "EventType": "UPDATED_STYLE_BOM",
+                          "Source": "PLM",
+                          "Target": "ERP",
+                          "EntityId": "INVALIDCODE",
+                          "EntityType": "SKU",
+                          "RowVersion": "RowVersion",
+                          "ModifiedDate": "2025-11-13T14:29:34.000Z",
+                          "Status": "NotFound"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Geçersiz istek",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Sunucu hatası",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "example": "Hata mesajı"
+          }
+        }
+      },
+      "DailyReport": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-02-09"
+          },
+          "totalChecked": {
+            "type": "integer",
+            "example": 45
+          },
+          "successCount": {
+            "type": "integer",
+            "example": 40
+          },
+          "duplicateErrors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "style": {
+                  "type": "object",
+                  "properties": {
+                    "StyleId": {
+                      "type": "integer",
+                      "example": 123
+                    },
+                    "StyleCode": {
+                      "type": "string",
+                      "example": "TW6240057038"
+                    }
+                  }
+                },
+                "last11": {
+                  "type": "string",
+                  "example": "W6240057038"
+                },
+                "duplicates": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "jumpErrors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "style": {
+                  "type": "object",
+                  "properties": {
+                    "StyleId": {
+                      "type": "integer"
+                    },
+                    "StyleCode": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "expectedCode": {
+                  "type": "string",
+                  "example": "W6240057037"
+                },
+                "jumpSize": {
+                  "type": "integer",
+                  "example": 2
+                }
+              }
+            }
+          },
+          "lastCheckTime": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-02-09T14:30:25.000Z"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "time": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "totalChecked": {
+                  "type": "integer"
+                },
+                "duplicates": {
+                  "type": "integer"
+                },
+                "jumps": {
+                  "type": "integer"
+                }
+              }
+            }
+          }
+        }
+      },
+      "IntegrationRequest": {
+        "type": "object",
+        "required": ["Events"],
+        "properties": {
+          "BatchId": {
+            "type": "string",
+            "example": "e799e53a-aab6-4b05-9139-971a6005dcf2"
+          },
+          "TotalEvents": {
+            "type": "string",
+            "example": "1"
+          },
+          "ProcessedDate": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2025-11-13T14:29:34.000Z"
+          },
+          "Events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["EntityId"],
+              "properties": {
+                "EventId": {
+                  "type": "string",
+                  "example": "28"
+                },
+                "EventType": {
+                  "type": "string",
+                  "example": "UPDATED_STYLE_BOM"
+                },
+                "Source": {
+                  "type": "string",
+                  "example": "PLM"
+                },
+                "Target": {
+                  "type": "string",
+                  "example": "ERP"
+                },
+                "EntityId": {
+                  "type": "string",
+                  "description": "StyleCode",
+                  "example": "TW6240057038"
+                },
+                "EntityType": {
+                  "type": "string",
+                  "example": "SKU"
+                },
+                "RowVersion": {
+                  "type": "string",
+                  "example": "RowVersion"
+                },
+                "ModifiedDate": {
+                  "type": "string",
+                  "format": "date-time",
+                  "example": "2025-11-13T14:29:34.000Z"
+                },
+                "Status": {
+                  "type": "string",
+                  "example": "3"
+                }
+              }
+            }
+          }
+        }
+      },
+      "IntegrationResponse": {
+        "type": "object",
+        "description": "Gelen JSON aynen döner. Sadece duplicate varsa Status='Duplicate' olur.",
+        "properties": {
+          "BatchId": {
+            "type": "string"
+          },
+          "TotalEvents": {
+            "type": "string"
+          },
+          "ProcessedDate": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "Events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "EventId": {
+                  "type": "string"
+                },
+                "EventType": {
+                  "type": "string"
+                },
+                "Source": {
+                  "type": "string"
+                },
+                "Target": {
+                  "type": "string"
+                },
+                "EntityId": {
+                  "type": "string"
+                },
+                "EntityType": {
+                  "type": "string"
+                },
+                "RowVersion": {
+                  "type": "string"
+                },
+                "ModifiedDate": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "Status": {
+                  "type": "string",
+                  "description": "Duplicate varsa 'Duplicate', yoksa orijinal değer",
+                  "enum": ["3", "Duplicate", "NotFound"]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

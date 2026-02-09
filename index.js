@@ -211,7 +211,7 @@ app.post('/validate-style', async (req, res) => {
     console.log('\n🔍 ========== ENTEGRASYON VALIDASYON ==========');
     console.log('Request alındı:', JSON.stringify(requestBody, null, 2));
 
-    // 1. EntityId'yi al
+    // 1. EntityId'yi al (StyleCode)
     if (!requestBody.Events || requestBody.Events.length === 0) {
       return res.status(400).json({
         success: false,
@@ -220,25 +220,25 @@ app.post('/validate-style', async (req, res) => {
     }
 
     const event = requestBody.Events[0];
-    const styleId = event.EntityId;
+    const styleCode = event.EntityId;
 
-    if (!styleId) {
+    if (!styleCode) {
       return res.status(400).json({
         success: false,
         error: 'EntityId bulunamadı'
       });
     }
 
-    console.log(`📋 EntityId (StyleId): ${styleId}`);
+    console.log(`📋 EntityId (StyleCode): ${styleCode}`);
 
     // 2. Style validasyonu yap
-    const validation = await validateSingleStyle(styleId);
+    const validation = await validateSingleStyle(styleCode);
 
     // 3. Response hazırla - SADECE orijinal JSON, ekstra alan yok
     let response = { ...requestBody };
 
     if (!validation.found) {
-      // StyleId bulunamadı
+      // StyleCode bulunamadı
       response.Events[0].Status = 'NotFound';
       console.log('❌ STYLE BULUNAMADI');
     } else if (validation.isDuplicate) {

@@ -2,27 +2,27 @@ const { getAllStyles } = require('./plm.service');
 const { isValidStyleCode, getLast11Digits } = require('./validator.service');
 
 /**
- * Tek bir StyleId için duplicate kontrolü yap
+ * Tek bir StyleCode için duplicate kontrolü yap
  */
-async function validateSingleStyle(styleId) {
+async function validateSingleStyle(styleCode) {
   try {
-    console.log(`🔍 StyleId ${styleId} için validasyon başladı...`);
+    console.log(`🔍 StyleCode ${styleCode} için validasyon başladı...`);
 
     // 1. Tüm Style'ları çek
     const allStyles = await getAllStyles();
 
-    // 2. İlgili Style'ı bul
-    const targetStyle = allStyles.find(s => s.StyleId === parseInt(styleId));
+    // 2. İlgili Style'ı bul (StyleCode'a göre)
+    const targetStyle = allStyles.find(s => s.StyleCode === styleCode);
 
     if (!targetStyle) {
-      console.log(`❌ StyleId ${styleId} bulunamadı`);
+      console.log(`❌ StyleCode ${styleCode} bulunamadı`);
       return {
         found: false,
-        error: 'StyleId bulunamadı'
+        error: 'StyleCode bulunamadı'
       };
     }
 
-    console.log(`✅ Style bulundu: ${targetStyle.StyleCode}`);
+    console.log(`✅ Style bulundu: ${targetStyle.StyleCode} (StyleId: ${targetStyle.StyleId})`);
 
     // 3. StyleCode kontrolü - 12 hane mi?
     if (!isValidStyleCode(targetStyle.StyleCode)) {
