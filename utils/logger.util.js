@@ -73,14 +73,26 @@ async function updateReport(checkResult) {
   report.successCount += checkResult.successCount;
   report.lastCheckTime = new Date().toISOString();
   
-  // Duplicate hatalarını ekle (anında mail atılanlar)
+  // Duplicate hatalarını ekle - SADECE YENİ OLANLARI (StyleId'ye göre unique)
   if (checkResult.duplicateErrors && checkResult.duplicateErrors.length > 0) {
-    report.duplicateErrors.push(...checkResult.duplicateErrors);
+    const existingDuplicateIds = new Set(report.duplicateErrors.map(e => e.style.StyleId));
+    const newDuplicates = checkResult.duplicateErrors.filter(e => !existingDuplicateIds.has(e.style.StyleId));
+    
+    if (newDuplicates.length > 0) {
+      report.duplicateErrors.push(...newDuplicates);
+      console.log(`📝 ${newDuplicates.length} yeni duplicate hatası rapora eklendi`);
+    }
   }
   
-  // Zıplama hatalarını ekle (gün sonu rapor için)
+  // Zıplama hatalarını ekle - SADECE YENİ OLANLARI (StyleId'ye göre unique)
   if (checkResult.jumpErrors && checkResult.jumpErrors.length > 0) {
-    report.jumpErrors.push(...checkResult.jumpErrors);
+    const existingJumpIds = new Set(report.jumpErrors.map(e => e.style.StyleId));
+    const newJumps = checkResult.jumpErrors.filter(e => !existingJumpIds.has(e.style.StyleId));
+    
+    if (newJumps.length > 0) {
+      report.jumpErrors.push(...newJumps);
+      console.log(`📝 ${newJumps.length} yeni zıplama hatası rapora eklendi`);
+    }
   }
 
   // Kontrol geçmişi

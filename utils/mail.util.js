@@ -10,12 +10,22 @@ const transporter = nodemailer.createTransport({
   }
 });
 
+// Mail gönderilen duplicate StyleId'leri takip et (aynı maili tekrar göndermemek için)
+const sentDuplicateAlerts = new Set();
+
 /**
  * Anında hata maili - Duplicate hatası için
+ * NOT: Aynı StyleId için sadece 1 kere mail gönderir
  */
 async function sendDuplicateAlert(duplicateError) {
   try {
     const { style, last11, duplicates } = duplicateError;
+    
+    // Bu StyleId için daha önce mail gönderildi mi?
+    if (sentDuplicateAlerts.has(style.StyleId)) {
+      console.log(`ℹ️ Duplicate alert zaten gönderildi: ${style.StyleCode} (StyleId: ${style.StyleId})`);
+      return false;
+    }
     
     const duplicatesList = duplicates.map(d => 
       `<li>StyleId: ${d.StyleId}, StyleCode: <strong>${d.StyleCode}</strong></li>`
@@ -58,9 +68,15 @@ async function sendDuplicateAlert(duplicateError) {
       html: html
     });
 
+    // Mail gönderildi olarak işaretle
+    sentDuplicateAlerts.add(style.StyleId);
+    
     console.log('✅ Duplicate alert maili gönderildi:', style.StyleCode);
+    return true;
+    
   } catch (error) {
     console.error('❌ Duplicate mail gönderme hatası:', error.message);
+    return false;
   }
 }
 
@@ -76,6 +92,14 @@ async function sendDailyReport(report) {
       console.log('ℹ️ Bugün kontrol yapılmadı, mail gönderilmedi');
       return;
     }
+    
+    // Oranları hesapla
+    const successRate = report.totalChecked > 0 
+      ? ((report.successCount / report.totalChecked) * 100).toFixed(2)
+      : 0;
+    const errorRate = report.totalChecked > 0
+      ? ((totalErrors / report.totalChecked) * 100).toFixed(2)
+      : 0;
 
     const duplicateSection = report.duplicateErrors.length > 0 ? `
       <div style="background-color: #f8d7da; padding: 15px; border-radius: 5px; margin: 20px 0;">
@@ -115,23 +139,35 @@ async function sendDailyReport(report) {
         <p style="font-size: 14px; color: #666;">${report.date} - ${new Date().toLocaleString('tr-TR')}</p>
 
         <div style="background-color: #e7f3ff; padding: 20px; border-radius: 5px; margin: 20px 0;">
-          <h3>Özet</h3>
+          <h3>📊 Özet İstatistikler</h3>
           <table style="width: 100%; border-collapse: collapse;">
             <tr>
-              <td style="padding: 8px;"><strong>Toplam Kontrol:</strong></td>
-              <td style="padding: 8px;">${report.totalChecked} kayıt</td>
+              <td style="padding: 8px;"><strong>Toplam Model:</strong></td>
+              <td style="padding: 8px; font-size: 18px;">${report.totalChecked} adet</td>
             </tr>
-            <tr>
+            <tr style="background-color: #d4edda;">
               <td style="padding: 8px;"><strong>✅ Başarılı:</strong></td>
-              <td style="padding: 8px; color: #28a745;">${report.successCount} kayıt</td>
+              <td style="padding: 8px; color: #155724; font-weight: bold;">${report.successCount} adet (${successRate}%)</td>
+            </tr>
+            <tr style="background-color: #f8d7da;">
+              <td style="padding: 8px;"><strong>❌ Hatalı:</strong></td>
+              <td style="padding: 8px; color: #721c24; font-weight: bold;">${totalErrors} adet (${errorRate}%)</td>
             </tr>
             <tr>
-              <td style="padding: 8px;"><strong>❌ Hatalı:</strong></td>
-              <td style="padding: 8px; color: #d9534f;">${totalErrors} kayıt</td>
+              <td style="padding: 8px; padding-left: 30px;">└ Duplicate:</td>
+              <td style="padding: 8px;">${report.duplicateErrors.length} adet</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; padding-left: 30px;">└ Zıplama:</td>
+              <td style="padding: 8px;">${report.jumpErrors.length} adet</td>
             </tr>
             <tr>
               <td style="padding: 8px;"><strong>Son Kontrol:</strong></td>
               <td style="padding: 8px;">${report.lastCheckTime ? new Date(report.lastCheckTime).toLocaleString('tr-TR') : 'N/A'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px;"><strong>Kontrol Sayısı:</strong></td>
+              <td style="padding: 8px;">${report.checks?.length || 0} kez</td>
             </tr>
           </table>
         </div>

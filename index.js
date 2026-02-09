@@ -3,7 +3,7 @@ const express = require('express');
 const cron = require('node-cron');
 
 // Services
-const { getTodayStyles, getAllStyles } = require('./services/plm.service');
+const { getStylesSinceLastCheck, getAllStyles, lockDuplicateStyles } = require('./services/plm.service');
 const { checkDuplicates, checkJumps } = require('./services/validator.service');
 const { updateReport, loadDailyReport, clearReport } = require('./utils/logger.util');
 const { sendDuplicateAlert, sendDailyReport } = require('./utils/mail.util');
@@ -17,35 +17,55 @@ async function runPLMCheck() {
     console.log('\n🔍 ========== PLM KONTROL BAŞLADI ==========');
     console.log('⏰ Zaman:', new Date().toLocaleString('tr-TR'));
 
-    // 1. Bugün create edilmiş Style'ları çek
-    const todayStyles = await getTodayStyles();
+    // 1. Son kontrol zamanını al
+    const report = await loadDailyReport();
+    const lastCheckTime = report.lastCheckTime;
     
-    if (todayStyles.length === 0) {
-      console.log('ℹ️ Bugün create edilmiş Style bulunamadı');
+    // 2. Son kontrolden sonra create edilmiş Style'ları çek
+    const newStyles = await getStylesSinceLastCheck(lastCheckTime);
+    
+    if (newStyles.length === 0) {
+      console.log('ℹ️ Yeni Style bulunamadı');
+      
+      // Boş check kaydet
+      await updateReport({
+        totalChecked: 0,
+        successCount: 0,
+        duplicateErrors: [],
+        jumpErrors: []
+      });
+      
       return;
     }
 
-    // 2. Tüm Style'ları çek (Duplicate kontrolü için)
+    // 3. Tüm Style'ları çek (Karşılaştırma için)
     const allStyles = await getAllStyles();
 
-    // 3. Senaryo 1: Duplicate Kontrolü
+    // 4. Senaryo 1: Duplicate Kontrolü
     console.log('\n🔍 Senaryo 1: Duplicate Kontrolü...');
-    const duplicateErrors = checkDuplicates(todayStyles, allStyles);
+    const duplicateErrors = checkDuplicates(newStyles, allStyles);
     
-    // Duplicate hatası varsa ANINDA MAIL GÖNDER
-    for (const error of duplicateErrors) {
-      await sendDuplicateAlert(error);
+    // Duplicate hatası varsa:
+    if (duplicateErrors.length > 0) {
+      // 1. ANINDA MAIL GÖNDER (sadece daha önce gönderilmemişse)
+      for (const error of duplicateErrors) {
+        await sendDuplicateAlert(error);
+      }
+      
+      // 2. Duplicate Style'ları KİLİTLE (MarketField4Id = 1)
+      const duplicateStyleIds = duplicateErrors.map(e => e.style.StyleId);
+      await lockDuplicateStyles(duplicateStyleIds);
     }
 
-    // 4. Senaryo 2: Zıplama Kontrolü
+    // 5. Senaryo 2: Zıplama Kontrolü
     console.log('\n🔍 Senaryo 2: Zıplama Kontrolü...');
-    const jumpErrors = checkJumps(todayStyles, allStyles);
+    const jumpErrors = checkJumps(newStyles, allStyles);
 
-    // 5. Sonuçları kaydet
+    // 6. Sonuçları kaydet
     const totalErrors = duplicateErrors.length + jumpErrors.length;
     const checkResult = {
-      totalChecked: todayStyles.length,
-      successCount: todayStyles.length - totalErrors,
+      totalChecked: newStyles.length,
+      successCount: newStyles.length - totalErrors,
       duplicateErrors: duplicateErrors,
       jumpErrors: jumpErrors
     };
@@ -55,12 +75,13 @@ async function runPLMCheck() {
     console.log('\n📊 Kontrol Özeti:');
     console.log(`   Toplam: ${checkResult.totalChecked}`);
     console.log(`   ✅ Başarılı: ${checkResult.successCount}`);
-    console.log(`   🚨 Duplicate: ${duplicateErrors.length}`);
+    console.log(`   🚨 Duplicate: ${duplicateErrors.length} ${duplicateErrors.length > 0 ? '(KİLİTLENDİ)' : ''}`);
     console.log(`   ⚠️ Zıplama: ${jumpErrors.length}`);
     console.log('========== PLM KONTROL BİTTİ ==========\n');
 
   } catch (error) {
     console.error('❌ PLM kontrol hatası:', error.message);
+    console.error(error.stack);
   }
 }
 
