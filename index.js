@@ -54,12 +54,18 @@ async function sendScheduledMail() {
   }
 }
 
-// Her gün saat 09:00'da mail gönder (örnek)
-// Format: saniye dakika saat gün ay haftanıngünü
-// cron.schedule('0 9 * * *', sendScheduledMail);
+// Her dakika mail gönder (TEST)
+cron.schedule('* * * * *', () => {
+  console.log('🕐 Cron job tetiklendi:', new Date().toLocaleString('tr-TR'));
+  sendScheduledMail();
+});
 
-// Test için: Her 5 dakikada bir (Heroku'da test için)
-// cron.schedule('*/5 * * * *', sendScheduledMail);
+console.log('⏰ Schedule aktif: Her dakika mail gönderilecek');
+
+// Diğer schedule örnekleri:
+// Her gün 09:00: '0 9 * * *'
+// Her 5 dakika: '*/5 * * * *'
+// Her Pazartesi 10:00: '0 10 * * 1'
 
 // Express routes
 app.get('/', (req, res) => {
