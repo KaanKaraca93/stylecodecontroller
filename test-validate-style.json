@@ -1,0 +1,18 @@
+{
+  "BatchId": "e799e53a-aab6-4b05-9139-971a6005dcf2?Workflow&verb=Process",
+  "TotalEvents": "1",
+  "ProcessedDate": "2025-11-13T14:29:34.000Z",
+  "Events": [
+    {
+      "EventId": "28",
+      "EventType": "UPDATED_STYLE_BOM",
+      "Source": "PLM",
+      "Target": "ERP",
+      "EntityId": "36",
+      "EntityType": "SKU",
+      "RowVersion": "RowVersion",
+      "ModifiedDate": "2025-11-13T14:29:34.000Z",
+      "Status": "3"
+    }
+  ]
+}

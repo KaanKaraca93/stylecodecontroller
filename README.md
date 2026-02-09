@@ -44,16 +44,27 @@ npm start
 
 ```bash
 # Ana sayfa - Status kontrolü
-http://localhost:3000/
+GET http://localhost:3000/
 
 # Manuel PLM kontrolü
-http://localhost:3000/check-now
+GET http://localhost:3000/check-now
 
 # Manuel gün sonu raporu
-http://localhost:3000/send-report
+GET http://localhost:3000/send-report
 
 # Günlük raporu görüntüle
-http://localhost:3000/daily-report
+GET http://localhost:3000/daily-report
+
+# Entegrasyon validasyonu (Tek StyleId kontrolü)
+POST http://localhost:3000/validate-style
+Content-Type: application/json
+
+{
+  "BatchId": "...",
+  "Events": [
+    { "EntityId": "36", ... }
+  ]
+}
 ```
 
 ## 🌍 Heroku Deploy
@@ -127,9 +138,70 @@ Konu: 📊 PLM Günlük Rapor - 09.02.2026
 - Son 11 hanenin numerik kısmını sıralar
 - Eksik kod varsa raporlar
 
+## 🔌 Entegrasyon Endpoint'i
+
+### POST /validate-style
+
+Entegrasyon sisteminden gelen tek bir Style'ı validate eder.
+
+**Request:**
+```json
+{
+  "BatchId": "e799e53a-aab6-4b05-9139-971a6005dcf2",
+  "Events": [
+    {
+      "EntityId": "36",
+      "EventType": "UPDATED_STYLE_BOM",
+      "Status": "3"
+    }
+  ]
+}
+```
+
+**Response (Duplicate varsa):**
+```json
+{
+  "BatchId": "...",
+  "Events": [
+    {
+      "EntityId": "36",
+      "Status": "Duplicate"
+    }
+  ],
+  "ValidationResult": {
+    "isValid": false,
+    "isDuplicate": true,
+    "styleCode": "TW6240057038",
+    "last11": "W6240057038",
+    "duplicates": [
+      { "StyleId": 123, "StyleCode": "AB6240057038" }
+    ]
+  }
+}
+```
+
+**Response (Geçerli ise):**
+```json
+{
+  "BatchId": "...",
+  "Events": [
+    {
+      "EntityId": "36",
+      "Status": "3"
+    }
+  ],
+  "ValidationResult": {
+    "isValid": true,
+    "styleCode": "TW6240057038",
+    "last11": "W6240057038"
+  }
+}
+```
+
 ## 📝 Notlar
 
 - Günlük rapor dosyası her gün sonu mail sonrası silinir
 - Duplicate hatası kritik olduğu için anında mail gönderilir
 - Zıplama hatası gün sonu raporunda topluca bildirilir
 - Tüm zamanlar GMT+0 (UTC) olarak işlenir
+- Entegrasyon endpoint'i sadece duplicate kontrolü yapar (zıplama kontrolü yok)

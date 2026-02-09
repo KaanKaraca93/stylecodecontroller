@@ -9,7 +9,10 @@ const { updateReport, loadDailyReport, clearReport } = require('./utils/logger.u
 const { sendDuplicateAlert, sendDailyReport } = require('./utils/mail.util');
 
 const app = express();
+app.use(express.json()); // JSON body parser
 const PORT = process.env.PORT || 3000;
+
+const { validateSingleStyle } = require('./services/style-validator.service');
 
 // PLM Monitoring Ana Fonksiyon
 async function runPLMCheck() {
@@ -183,6 +186,104 @@ app.get('/daily-report', async (req, res) => {
   }
 });
 
+// ========== ENTİGRASYON VALİDASYON ENDPOİNT ==========
+
+/**
+ * Entegrasyon için Style validasyonu
+ * POST /validate-style
+ * 
+ * Request Body:
+ * {
+ *   "BatchId": "...",
+ *   "Events": [
+ *     { "EntityId": "36", ... }
+ *   ]
+ * }
+ * 
+ * Response:
+ * - Duplicate varsa: Status = "Duplicate"
+ * - Hata yoksa: Gelen JSON aynen döner
+ */
+app.post('/validate-style', async (req, res) => {
+  try {
+    const requestBody = req.body;
+
+    console.log('\n🔍 ========== ENTEGRASYON VALIDASYON ==========');
+    console.log('Request alındı:', JSON.stringify(requestBody, null, 2));
+
+    // 1. EntityId'yi al
+    if (!requestBody.Events || requestBody.Events.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Events array boş veya eksik'
+      });
+    }
+
+    const event = requestBody.Events[0];
+    const styleId = event.EntityId;
+
+    if (!styleId) {
+      return res.status(400).json({
+        success: false,
+        error: 'EntityId bulunamadı'
+      });
+    }
+
+    console.log(`📋 EntityId (StyleId): ${styleId}`);
+
+    // 2. Style validasyonu yap
+    const validation = await validateSingleStyle(styleId);
+
+    // 3. Response hazırla
+    let response = { ...requestBody };
+
+    if (!validation.found) {
+      // StyleId bulunamadı
+      response.Events[0].Status = 'NotFound';
+      response.ValidationResult = {
+        isValid: false,
+        message: validation.error
+      };
+    } else if (validation.isDuplicate) {
+      // Duplicate hatası var
+      response.Events[0].Status = 'Duplicate';
+      response.ValidationResult = {
+        isValid: false,
+        isDuplicate: true,
+        message: validation.message,
+        styleCode: validation.style.StyleCode,
+        last11: validation.last11,
+        duplicates: validation.duplicates
+      };
+      
+      console.log('🚨 DUPLICATE TESPİT EDİLDİ!');
+    } else {
+      // Hata yok, geçerli
+      // Status'u olduğu gibi bırak veya Success yap (isteğe göre)
+      response.ValidationResult = {
+        isValid: true,
+        message: validation.message,
+        styleCode: validation.style.StyleCode,
+        last11: validation.last11
+      };
+      
+      console.log('✅ STYLE GEÇERLİ');
+    }
+
+    console.log('Response:', JSON.stringify(response, null, 2));
+    console.log('========== VALIDASYON TAMAMLANDI ==========\n');
+
+    res.json(response);
+
+  } catch (error) {
+    console.error('❌ Validasyon endpoint hatası:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 app.listen(PORT, () => {
   console.log('\n🚀 ========================================');
   console.log(`   PLM MONITORING SYSTEM BAŞLATILDI`);
@@ -190,9 +291,10 @@ app.listen(PORT, () => {
   console.log(`   Zaman: ${new Date().toLocaleString('tr-TR')}`);
   console.log('========================================');
   console.log('\n📡 Endpoints:');
-  console.log(`   GET /              - Status`);
-  console.log(`   GET /check-now     - Manuel PLM kontrolü`);
-  console.log(`   GET /send-report   - Manuel gün sonu raporu`);
-  console.log(`   GET /daily-report  - Günlük raporu görüntüle`);
+  console.log(`   GET  /              - Status`);
+  console.log(`   GET  /check-now     - Manuel PLM kontrolü`);
+  console.log(`   GET  /send-report   - Manuel gün sonu raporu`);
+  console.log(`   GET  /daily-report  - Günlük raporu görüntüle`);
+  console.log(`   POST /validate-style - Entegrasyon validasyonu`);
   console.log('\n');
 });
