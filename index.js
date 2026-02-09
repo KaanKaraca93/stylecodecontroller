@@ -54,15 +54,16 @@ async function sendScheduledMail() {
   }
 }
 
-// Her dakika mail gönder (TEST)
-cron.schedule('* * * * *', () => {
+// Her 10 dakikada bir mail gönder (TEST)
+cron.schedule('*/10 * * * *', () => {
   console.log('🕐 Cron job tetiklendi:', new Date().toLocaleString('tr-TR'));
   sendScheduledMail();
 });
 
-console.log('⏰ Schedule aktif: Her dakika mail gönderilecek');
+console.log('⏰ Schedule aktif: Her 10 dakikada bir mail gönderilecek');
 
 // Diğer schedule örnekleri:
+// Her dakika: '* * * * *'
 // Her gün 09:00: '0 9 * * *'
 // Her 5 dakika: '*/5 * * * *'
 // Her Pazartesi 10:00: '0 10 * * 1'
