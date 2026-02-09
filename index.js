@@ -234,40 +234,25 @@ app.post('/validate-style', async (req, res) => {
     // 2. Style validasyonu yap
     const validation = await validateSingleStyle(styleId);
 
-    // 3. Response hazırla
+    // 3. Response hazırla - SADECE orijinal JSON, ekstra alan yok
     let response = { ...requestBody };
 
     if (!validation.found) {
       // StyleId bulunamadı
       response.Events[0].Status = 'NotFound';
-      response.ValidationResult = {
-        isValid: false,
-        message: validation.error
-      };
+      console.log('❌ STYLE BULUNAMADI');
     } else if (validation.isDuplicate) {
-      // Duplicate hatası var
+      // Duplicate hatası var - SADECE Status değiştir
       response.Events[0].Status = 'Duplicate';
-      response.ValidationResult = {
-        isValid: false,
-        isDuplicate: true,
-        message: validation.message,
-        styleCode: validation.style.StyleCode,
-        last11: validation.last11,
-        duplicates: validation.duplicates
-      };
-      
       console.log('🚨 DUPLICATE TESPİT EDİLDİ!');
+      console.log(`   StyleCode: ${validation.style.StyleCode}`);
+      console.log(`   Last 11: ${validation.last11}`);
+      console.log(`   Duplicate sayısı: ${validation.duplicates.length}`);
     } else {
-      // Hata yok, geçerli
-      // Status'u olduğu gibi bırak veya Success yap (isteğe göre)
-      response.ValidationResult = {
-        isValid: true,
-        message: validation.message,
-        styleCode: validation.style.StyleCode,
-        last11: validation.last11
-      };
-      
+      // Hata yok, geçerli - Gelen JSON aynen döner
       console.log('✅ STYLE GEÇERLİ');
+      console.log(`   StyleCode: ${validation.style.StyleCode}`);
+      console.log(`   Last 11: ${validation.last11}`);
     }
 
     console.log('Response:', JSON.stringify(response, null, 2));

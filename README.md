@@ -161,42 +161,50 @@ Entegrasyon sisteminden gelen tek bir Style'ı validate eder.
 **Response (Duplicate varsa):**
 ```json
 {
-  "BatchId": "...",
+  "BatchId": "e799e53a-aab6-4b05-9139-971a6005dcf2",
+  "TotalEvents": "1",
+  "ProcessedDate": "2025-11-13T14:29:34.000Z",
   "Events": [
     {
+      "EventId": "28",
+      "EventType": "UPDATED_STYLE_BOM",
+      "Source": "PLM",
+      "Target": "ERP",
       "EntityId": "36",
+      "EntityType": "SKU",
+      "RowVersion": "RowVersion",
+      "ModifiedDate": "2025-11-13T14:29:34.000Z",
       "Status": "Duplicate"
     }
-  ],
-  "ValidationResult": {
-    "isValid": false,
-    "isDuplicate": true,
-    "styleCode": "TW6240057038",
-    "last11": "W6240057038",
-    "duplicates": [
-      { "StyleId": 123, "StyleCode": "AB6240057038" }
-    ]
-  }
+  ]
 }
 ```
 
 **Response (Geçerli ise):**
 ```json
 {
-  "BatchId": "...",
+  "BatchId": "e799e53a-aab6-4b05-9139-971a6005dcf2",
+  "TotalEvents": "1",
+  "ProcessedDate": "2025-11-13T14:29:34.000Z",
   "Events": [
     {
+      "EventId": "28",
+      "EventType": "UPDATED_STYLE_BOM",
+      "Source": "PLM",
+      "Target": "ERP",
       "EntityId": "36",
+      "EntityType": "SKU",
+      "RowVersion": "RowVersion",
+      "ModifiedDate": "2025-11-13T14:29:34.000Z",
       "Status": "3"
     }
-  ],
-  "ValidationResult": {
-    "isValid": true,
-    "styleCode": "TW6240057038",
-    "last11": "W6240057038"
-  }
+  ]
 }
 ```
+
+⚠️ **ÖNEMLİ:** Response'da ekstra alan yok! ERP API'sine direkt gönderilebilir.
+- Duplicate varsa: `Status = "Duplicate"`
+- Geçerli ise: Gelen JSON aynen döner
 
 ## 📝 Notlar
 
