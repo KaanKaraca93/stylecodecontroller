@@ -1,89 +1,127 @@
 require('dotenv').config();
 const express = require('express');
-const nodemailer = require('nodemailer');
 const cron = require('node-cron');
+
+// Services
+const { getTodayStyles, getAllStyles } = require('./services/plm.service');
+const { checkDuplicates, checkJumps } = require('./services/validator.service');
+const { updateReport, loadDailyReport, clearReport } = require('./utils/logger.util');
+const { sendDuplicateAlert, sendDailyReport } = require('./utils/mail.util');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// SMTP ayarları - Gmail veya Office 365 otomatik algılama
-const isGmail = process.env.EMAIL_USER?.includes('gmail.com');
-
-const transporter = nodemailer.createTransport(isGmail ? {
-  service: 'gmail',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-} : {
-  host: 'smtp.office365.com',
-  port: 587,
-  secure: false,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  },
-  tls: {
-    ciphers: 'SSLv3'
-  }
-});
-
-// Mail gönderme fonksiyonu
-async function sendScheduledMail() {
+// PLM Monitoring Ana Fonksiyon
+async function runPLMCheck() {
   try {
-    console.log('📧 Zamanlanmış mail gönderiliyor...', new Date().toLocaleString('tr-TR'));
-    
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: process.env.EMAIL_TO,
-      subject: `⏰ Zamanlanmış Mail - ${new Date().toLocaleString('tr-TR')}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px;">
-          <h2 style="color: #0078d4;">⏰ Zamanlanmış Mail</h2>
-          <p>Bu mail otomatik olarak zamanlanmış şekilde gönderilmiştir.</p>
-          <p><strong>Gönderilme Zamanı:</strong> ${new Date().toLocaleString('tr-TR')}</p>
-          <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
-          <p style="color: #666; font-size: 12px;">Bu mail Node.js Schedule Mail Sender tarafından gönderilmiştir.</p>
-        </div>
-      `
-    });
+    console.log('\n🔍 ========== PLM KONTROL BAŞLADI ==========');
+    console.log('⏰ Zaman:', new Date().toLocaleString('tr-TR'));
 
-    console.log('✅ Mail gönderildi! Message ID:', info.messageId);
+    // 1. Bugün create edilmiş Style'ları çek
+    const todayStyles = await getTodayStyles();
+    
+    if (todayStyles.length === 0) {
+      console.log('ℹ️ Bugün create edilmiş Style bulunamadı');
+      return;
+    }
+
+    // 2. Tüm Style'ları çek (Duplicate kontrolü için)
+    const allStyles = await getAllStyles();
+
+    // 3. Senaryo 1: Duplicate Kontrolü
+    console.log('\n🔍 Senaryo 1: Duplicate Kontrolü...');
+    const duplicateErrors = checkDuplicates(todayStyles, allStyles);
+    
+    // Duplicate hatası varsa ANINDA MAIL GÖNDER
+    for (const error of duplicateErrors) {
+      await sendDuplicateAlert(error);
+    }
+
+    // 4. Senaryo 2: Zıplama Kontrolü
+    console.log('\n🔍 Senaryo 2: Zıplama Kontrolü...');
+    const jumpErrors = checkJumps(todayStyles, allStyles);
+
+    // 5. Sonuçları kaydet
+    const totalErrors = duplicateErrors.length + jumpErrors.length;
+    const checkResult = {
+      totalChecked: todayStyles.length,
+      successCount: todayStyles.length - totalErrors,
+      duplicateErrors: duplicateErrors,
+      jumpErrors: jumpErrors
+    };
+
+    await updateReport(checkResult);
+
+    console.log('\n📊 Kontrol Özeti:');
+    console.log(`   Toplam: ${checkResult.totalChecked}`);
+    console.log(`   ✅ Başarılı: ${checkResult.successCount}`);
+    console.log(`   🚨 Duplicate: ${duplicateErrors.length}`);
+    console.log(`   ⚠️ Zıplama: ${jumpErrors.length}`);
+    console.log('========== PLM KONTROL BİTTİ ==========\n');
+
   } catch (error) {
-    console.error('❌ Mail gönderilirken hata:', error.message);
+    console.error('❌ PLM kontrol hatası:', error.message);
   }
 }
 
-// Her 10 dakikada bir mail gönder (TEST)
-cron.schedule('*/10 * * * *', () => {
-  console.log('🕐 Cron job tetiklendi:', new Date().toLocaleString('tr-TR'));
-  sendScheduledMail();
+// Gün Sonu Raporu Gönder
+async function sendEndOfDayReport() {
+  try {
+    console.log('\n📊 ========== GÜN SONU RAPORU ==========');
+    
+    const report = await loadDailyReport();
+    await sendDailyReport(report);
+    
+    // Rapor gönderildikten sonra dosyayı sil
+    await clearReport();
+    
+    console.log('========== GÜN SONU RAPORU TAMAMLANDI ==========\n');
+  } catch (error) {
+    console.error('❌ Gün sonu rapor hatası:', error.message);
+  }
+}
+
+// ========== SCHEDULE AYARLARI ==========
+
+// 1. PLM Monitoring - Her 5 dakikada bir kontrol
+cron.schedule('*/5 * * * *', () => {
+  console.log('🕐 PLM Monitoring Cron tetiklendi:', new Date().toLocaleString('tr-TR'));
+  runPLMCheck();
 });
 
-console.log('⏰ Schedule aktif: Her 10 dakikada bir mail gönderilecek');
+// 2. Gün Sonu Raporu - Her gün 20:00'de
+cron.schedule('0 20 * * *', () => {
+  console.log('🕐 Gün Sonu Raporu Cron tetiklendi:', new Date().toLocaleString('tr-TR'));
+  sendEndOfDayReport();
+});
 
-// Diğer schedule örnekleri:
-// Her dakika: '* * * * *'
-// Her gün 09:00: '0 9 * * *'
-// Her 5 dakika: '*/5 * * * *'
-// Her Pazartesi 10:00: '0 10 * * 1'
+console.log('⏰ Schedule aktif:');
+console.log('   - PLM Kontrol: Her 5 dakikada bir');
+console.log('   - Gün Sonu Rapor: Her gün 20:00');
 
-// Express routes
+// ========================================
+
+// ========== EXPRESS ROUTES ==========
+
 app.get('/', (req, res) => {
   res.json({
     status: 'running',
-    message: 'Scheduled Mail Sender çalışıyor!',
-    time: new Date().toLocaleString('tr-TR')
+    message: 'PLM Monitoring System çalışıyor!',
+    time: new Date().toLocaleString('tr-TR'),
+    schedules: {
+      plmCheck: 'Her 5 dakikada bir',
+      dailyReport: 'Her gün 20:00'
+    }
   });
 });
 
-// Manuel mail gönderme endpoint'i
-app.get('/send-test-mail', async (req, res) => {
+// Manuel PLM kontrolü
+app.get('/check-now', async (req, res) => {
   try {
-    await sendScheduledMail();
+    await runPLMCheck();
     res.json({ 
       success: true, 
-      message: 'Mail gönderildi!',
+      message: 'PLM kontrolü tamamlandı!',
       time: new Date().toLocaleString('tr-TR')
     });
   } catch (error) {
@@ -94,8 +132,46 @@ app.get('/send-test-mail', async (req, res) => {
   }
 });
 
+// Manuel gün sonu raporu
+app.get('/send-report', async (req, res) => {
+  try {
+    await sendEndOfDayReport();
+    res.json({ 
+      success: true, 
+      message: 'Gün sonu raporu gönderildi!',
+      time: new Date().toLocaleString('tr-TR')
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
+// Günlük raporu görüntüle
+app.get('/daily-report', async (req, res) => {
+  try {
+    const report = await loadDailyReport();
+    res.json(report);
+  } catch (error) {
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
 app.listen(PORT, () => {
-  console.log(`🚀 Server ${PORT} portunda çalışıyor`);
-  console.log(`📧 Mail Sender hazır!`);
-  console.log(`🌐 Test için: http://localhost:${PORT}/send-test-mail`);
+  console.log('\n🚀 ========================================');
+  console.log(`   PLM MONITORING SYSTEM BAŞLATILDI`);
+  console.log(`   Port: ${PORT}`);
+  console.log(`   Zaman: ${new Date().toLocaleString('tr-TR')}`);
+  console.log('========================================');
+  console.log('\n📡 Endpoints:');
+  console.log(`   GET /              - Status`);
+  console.log(`   GET /check-now     - Manuel PLM kontrolü`);
+  console.log(`   GET /send-report   - Manuel gün sonu raporu`);
+  console.log(`   GET /daily-report  - Günlük raporu görüntüle`);
+  console.log('\n');
 });
