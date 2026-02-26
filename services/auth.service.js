@@ -1,12 +1,12 @@
 const axios = require('axios');
 
-// Infor PLM OAuth2 Credentials (Hard-coded)
+// Infor PLM OAuth2 Credentials (Hard-coded) - PRD Environment
 const AUTH_CONFIG = {
-  tokenUrl: 'https://mingle-sso.eu1.inforcloudsuite.com:443/ATJZAMEWEF5P4SNV_TST/as/token.oauth2',
-  clientId: 'ATJZAMEWEF5P4SNV_TST~vlWkwz2P74KAmRFfihVsdK5yjnHvnfPUrcOt4nl6gkI',
-  clientSecret: 'HU1TUcBOX1rkp-uuYKUQ3simFEYzPKNM-XIyf4ewIxe-TYUZOK7RAlXUPd_FwSZMAslt8I9RZmv23xItVKY8EQ',
-  username: 'ATJZAMEWEF5P4SNV_TST#wRJ7YQKSo12wG4id-Z3INRAKK-8Sc3OOy469Cdx0JX_BmoI8UVYn-QE0-mu_XeBHXhBIIqNco_B9rJB6o_PVeA',
-  password: 'CQvOTffe-th5p4Hzjq6VPz9pHYJuI3QtW_HhSu2FCyBcbvlJI0p-udS-1AQINB9nSUt1ISHb2u5dh1cjgLDScQ'
+  tokenUrl: 'https://mingle-sso.eu1.inforcloudsuite.com:443/ATJZAMEWEF5P4SNV_PRD/as/token.oauth2',
+  clientId: 'ATJZAMEWEF5P4SNV_PRD~zWbsEgkMBlqdSXoSAXBiM8V1POA0-2Mkn1qkORhxma0',
+  clientSecret: 'Ll2ehfOJ14uXzyLwR-6BIUmnQNFfhSFRadOzhfzIgK8DBs0x8_AQ3vqbiNrCVOfTyN3_v_Vyf1Yq4WMA7F68hg',
+  username: 'ATJZAMEWEF5P4SNV_PRD#i8eNjPXq0sB98qp-1D4PwM9-044cZfI-qI59A1qw1L3X55uUgNkAi4TYO8kl9tzCrU8e-kY6tNbocEvsz3wPkw',
+  password: 'N_WIyl8NlBrP53LI5JX3YVkbplqXDzk3dvMlRWsbIVJe261D8qluZHfJeGqHRoUa8vgncqVpEryN6k7YTGuhiw'
 };
 
 let cachedToken = null;

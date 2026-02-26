@@ -1,7 +1,7 @@
 const axios = require('axios');
 const { getAccessToken } = require('./auth.service');
 
-const PLM_API_BASE = 'https://mingle-ionapi.eu1.inforcloudsuite.com/ATJZAMEWEF5P4SNV_TST/FASHIONPLM/odata2/api/odata2';
+const PLM_API_BASE = 'https://mingle-ionapi.eu1.inforcloudsuite.com/ATJZAMEWEF5P4SNV_PRD/FASHIONPLM/odata2/api/odata2';
 
 /**
  * Son kontrolden sonra create edilmiş Style kayıtlarını çek
