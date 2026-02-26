@@ -107,8 +107,8 @@ async function sendEndOfDayReport() {
 
 // ========== SCHEDULE AYARLARI ==========
 
-// 1. PLM Monitoring - Her 5 dakikada bir kontrol
-cron.schedule('*/5 * * * *', () => {
+// 1. PLM Monitoring - Her 30 dakikada bir kontrol
+cron.schedule('*/30 * * * *', () => {
   console.log('🕐 PLM Monitoring Cron tetiklendi:', new Date().toLocaleString('tr-TR'));
   runPLMCheck();
 });
@@ -120,7 +120,7 @@ cron.schedule('0 20 * * *', () => {
 });
 
 console.log('⏰ Schedule aktif:');
-console.log('   - PLM Kontrol: Her 5 dakikada bir');
+console.log('   - PLM Kontrol: Her 30 dakikada bir');
 console.log('   - Gün Sonu Rapor: Her gün 20:00');
 
 // ========================================
@@ -133,7 +133,7 @@ app.get('/', (req, res) => {
     message: 'PLM Monitoring System çalışıyor!',
     time: new Date().toLocaleString('tr-TR'),
     schedules: {
-      plmCheck: 'Her 5 dakikada bir',
+      plmCheck: 'Her 30 dakikada bir',
       dailyReport: 'Her gün 20:00'
     }
   });
