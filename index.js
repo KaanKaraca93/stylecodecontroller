@@ -3,7 +3,7 @@ const express = require('express');
 const cron = require('node-cron');
 
 // Services
-const { getStylesSinceLastCheck, getAllStyles, lockDuplicateStyles } = require('./services/plm.service');
+const { getStylesSinceLastCheck, getStylesSince, getAllStyles, lockDuplicateStyles } = require('./services/plm.service');
 const { checkDuplicates, checkJumps } = require('./services/validator.service');
 const { updateReport, loadDailyReport, clearReport } = require('./utils/logger.util');
 const { sendDuplicateAlert, sendDailyReport } = require('./utils/mail.util');
@@ -183,6 +183,99 @@ app.get('/daily-report', async (req, res) => {
       success: false, 
       error: error.message 
     });
+  }
+});
+
+// ========== ARALIK KONTROL ENDPOİNT ==========
+
+/**
+ * Belirli saat/gün aralığı için tek seferlik kontrol
+ * GET /check-range?hours=48
+ * GET /check-range?days=2
+ * Sadece rapor döner, mail atmaz, PLM'e yazma yapmaz
+ */
+app.get('/check-range', async (req, res) => {
+  try {
+    const hours = req.query.hours ? parseInt(req.query.hours) : null;
+    const days  = req.query.days  ? parseInt(req.query.days)  : null;
+
+    if (!hours && !days) {
+      return res.status(400).json({ success: false, error: 'hours veya days parametresi gerekli. Örnek: /check-range?days=2' });
+    }
+
+    const totalHours = hours || (days * 24);
+    const sinceDate  = new Date(Date.now() - totalHours * 60 * 60 * 1000);
+
+    console.log(`\n📅 ===== ARALIK KONTROL: Son ${totalHours} saat =====`);
+    console.log(`   Başlangıç: ${sinceDate.toLocaleString('tr-TR')}`);
+    console.log(`   Bitiş    : ${new Date().toLocaleString('tr-TR')}`);
+
+    // 1. Aralıktaki Style'ları çek
+    const rangeStyles = await getStylesSince(sinceDate);
+
+    if (rangeStyles.length === 0) {
+      return res.json({
+        success: true,
+        summary: { period: `Son ${totalHours} saat`, since: sinceDate, total: 0, success: 0, duplicates: 0, jumps: 0 },
+        duplicateErrors: [],
+        jumpErrors: [],
+        message: 'Bu aralıkta yeni model bulunamadı'
+      });
+    }
+
+    // 2. Tüm Style'ları çek (karşılaştırma için)
+    const allStyles = await getAllStyles();
+
+    // 3. Kontroller
+    const duplicateErrors = checkDuplicates(rangeStyles, allStyles);
+    const jumpErrors      = checkJumps(rangeStyles, allStyles);
+
+    const totalErrors  = duplicateErrors.length + jumpErrors.length;
+    const successCount = rangeStyles.length - totalErrors;
+
+    const summary = {
+      period    : `Son ${totalHours} saat`,
+      since     : sinceDate,
+      until     : new Date(),
+      total     : rangeStyles.length,
+      success   : successCount,
+      duplicates: duplicateErrors.length,
+      jumps     : jumpErrors.length,
+      successRate: `${((successCount / rangeStyles.length) * 100).toFixed(1)}%`,
+      errorRate  : `${((totalErrors  / rangeStyles.length) * 100).toFixed(1)}%`
+    };
+
+    console.log(`\n📊 Sonuç: ${rangeStyles.length} model | ✅ ${successCount} başarılı | 🚨 ${duplicateErrors.length} duplicate | ⚠️ ${jumpErrors.length} zıplama`);
+    console.log('===== ARALIK KONTROL BİTTİ =====\n');
+
+    res.json({
+      success: true,
+      summary,
+      duplicateErrors: duplicateErrors.map(e => ({
+        StyleCode  : e.style.StyleCode,
+        StyleId    : e.style.StyleId,
+        last11     : e.last11,
+        Season     : e.style.Season?.Name || 'N/A',
+        Brand      : e.style.Brand?.Name  || 'N/A',
+        Category   : e.style.ProductSubSubCategory?.Name || 'N/A',
+        CreateDate : e.style.CreateDate,
+        duplicates : e.duplicates
+      })),
+      jumpErrors: jumpErrors.map(e => ({
+        StyleCode      : e.style.StyleCode,
+        StyleId        : e.style.StyleId,
+        currentCode    : e.currentCode,
+        expectedCode   : e.expectedCode,
+        jumpSize       : e.jumpSize,
+        Season         : e.style.Season?.Name || 'N/A',
+        Category       : e.style.ProductSubSubCategory?.Name || 'N/A',
+        CreateDate     : e.style.CreateDate
+      }))
+    });
+
+  } catch (error) {
+    console.error('❌ Aralık kontrol hatası:', error.message);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

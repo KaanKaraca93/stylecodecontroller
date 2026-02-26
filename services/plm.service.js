@@ -122,8 +122,45 @@ async function lockDuplicateStyles(styleIds) {
   }
 }
 
+/**
+ * Belirli bir tarihten itibaren oluşturulan Style'ları çek
+ */
+async function getStylesSince(sinceDate) {
+  try {
+    const token = await getAccessToken();
+    const sinceTimeISO = new Date(sinceDate).toISOString();
+
+    console.log(`📊 PLM API çağrısı: ${sinceTimeISO} tarihinden itibaren Style'lar çekiliyor...`);
+
+    const url = `${PLM_API_BASE}/Style`;
+    const params = {
+      $select: 'StyleId,StyleCode,Name,BrandId,SeasonId,ProductSubSubCategoryId,ModifyDate,CreateDate',
+      $expand: 'Season,Brand,ProductSubSubCategory',
+      $filter: `CreateDate ge ${sinceTimeISO}`
+    };
+
+    const response = await axios.get(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json'
+      },
+      params
+    });
+
+    const styles = response.data.value || [];
+    console.log(`✅ ${styles.length} adet Style bulundu (${sinceTimeISO} sonrası)`);
+
+    return styles;
+
+  } catch (error) {
+    console.error('❌ PLM API hatası:', error.response?.data || error.message);
+    throw error;
+  }
+}
+
 module.exports = {
   getStylesSinceLastCheck,
+  getStylesSince,
   getAllStyles,
   lockDuplicateStyles
 };
